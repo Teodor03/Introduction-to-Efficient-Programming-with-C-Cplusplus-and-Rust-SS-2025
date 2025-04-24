@@ -7,7 +7,7 @@ void effi_putchar(char c) {
     putchar(c);
 }
 
-int main() {
+int main(void) {
     printf("First step, print hello world:\n");
     print_helloworld();
 
