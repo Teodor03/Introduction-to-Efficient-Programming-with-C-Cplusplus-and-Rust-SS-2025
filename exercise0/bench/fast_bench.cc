@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
 extern "C" {
-#include "../include/print.h"
+#include "print.h"
 
 
 // not interesting for benchmark

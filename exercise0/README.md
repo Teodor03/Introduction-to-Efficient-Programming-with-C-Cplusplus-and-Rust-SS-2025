@@ -4,17 +4,17 @@ You need `cmake` and a working C and C++ compiler.
 
 # Workflow
 
-Build main (creates executable in `build_debug`):
+Build main (creates executable in `build`):
 ```
-cmake -B build_debug && cmake --build build_debug -j
+cmake -B build && cmake --build build -j
 ```
 
-This command also builds the test cases (in `build_debug/tests`) and benchmarks (in `build_debug/bench`)
+This command also builds the test cases (in `build/tests`) and benchmarks (in `build/bench`)
 
 Run tests by executing the according executables,
 or by executing this `bash`-oneliner:
 ```
-find build_debug/tests/* -prune -type f -executable '(' -exec {} ';' -or -quit ')'
+find build/tests/* -prune -type f -executable '(' -exec {} ';' -or -quit ')'
 ```
 
 # Code Structure
