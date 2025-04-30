@@ -27,7 +27,7 @@ BENCHMARK(medium_buggy_bench);
 
 static void long_buggy_bench(benchmark::State &state) {
     auto init = "foo"s;
-    while (init.size() < (1 << 25)) init += init;
+    while (init.size() < (1 << 23)) init += init;
     for (auto _ : state) print_buggy(init.c_str());
 }
 BENCHMARK(long_buggy_bench);

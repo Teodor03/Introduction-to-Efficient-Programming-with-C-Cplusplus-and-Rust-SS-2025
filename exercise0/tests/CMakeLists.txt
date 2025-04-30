@@ -38,4 +38,8 @@ add_googletest(print_hello_world print_hello_world.cc)
 add_googletest(print_buggy print_buggy.cc)
 add_googletest(print_leaky print_leaky.cc)
 add_googletest(print_very_slowly print_very_slowly.cc)
+# new test cases
+add_googletest(buggy_bench_test buggy_bench_test.cc)
+add_googletest(fast_bench_test fast_bench_test.cc)
+add_googletest(slow_bench_test slow_bench_test.cc)
 

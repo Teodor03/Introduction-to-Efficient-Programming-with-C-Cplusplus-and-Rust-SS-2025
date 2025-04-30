@@ -1,6 +1,8 @@
+// headers from exercise
 #include "print.h"
 #include "effi_putchar.h"
 
+// headers from standard library
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -74,6 +76,7 @@ void print_very_slowly(char c, size_t num_lines) {
         buffer = append_character(buffer, '\n');
     }
 
+    // Question for studies: why is this copy needed?
     char *copy = buffer;
     while(*copy)
         effi_putchar(*copy++);
