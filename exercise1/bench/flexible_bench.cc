@@ -498,6 +498,6 @@ static void BM_TreeStructure(benchmark::State &state) {
     
     balloc_teardown();
 }
-BENCHMARK(BM_TreeStructure)->DenseRange(3, 9, 2);
+BENCHMARK(BM_TreeStructure)->DenseRange(3, 7, 2);
 
 BENCHMARK_MAIN();
