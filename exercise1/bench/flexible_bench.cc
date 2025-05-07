@@ -402,7 +402,7 @@ static void BM_RealWorldSimulation(benchmark::State &state) {
     
     balloc_teardown();
 }
-BENCHMARK(BM_RealWorldSimulation)->Arg(100)->Arg(500);
+BENCHMARK(BM_RealWorldSimulation)->Arg(100)->Arg(500)->Arg(1000);
 
 // Benchmark traversing a tree-like structure with many small allocations
 static void BM_TreeStructure(benchmark::State &state) {
@@ -466,6 +466,7 @@ static void BM_TreeStructure(benchmark::State &state) {
     
     balloc_setup();
     
+    std::vector<TreeNode*> next_level;
     for (auto _ : state) {
         // Create root node
         TreeNode* root = create_node(0, tree_depth);
@@ -475,7 +476,7 @@ static void BM_TreeStructure(benchmark::State &state) {
         std::vector<TreeNode*> current_level = {root};
         
         for (int depth = 1; depth <= tree_depth; depth++) {
-            std::vector<TreeNode*> next_level;
+            next_level.clear();
             
             for (TreeNode* parent : current_level) {
                 if (!parent || !parent->children) continue;
@@ -497,6 +498,6 @@ static void BM_TreeStructure(benchmark::State &state) {
     
     balloc_teardown();
 }
-BENCHMARK(BM_TreeStructure)->Range(1, 5);
+BENCHMARK(BM_TreeStructure)->DenseRange(3, 9, 2);
 
 BENCHMARK_MAIN();
