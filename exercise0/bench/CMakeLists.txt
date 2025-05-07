@@ -30,7 +30,7 @@ FetchContent_MakeAvailable(googletest)
 FetchContent_Declare(
   googlebench
   GIT_REPOSITORY https://github.com/google/benchmark.git
-  GIT_TAG main
+  GIT_TAG afa23b7699c17f1e26c88cbf95257b20d78d6247
 )
 FetchContent_MakeAvailable(googlebench)
 
