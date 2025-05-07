@@ -215,6 +215,35 @@ TEST(UserAPI, ManyAllocations) {
     balloc_teardown();
 }
 
+struct singly_linked_list {
+    singly_linked_list *next;
+};
+
+TEST(UserAPI, MoreAllocations) {
+    balloc_setup();
+    const int num_allocations = 2 * 1024 * 1024;
+
+    long sum = 0;
+    singly_linked_list first {nullptr};
+    for (singly_linked_list *curr {&first}; sum < num_allocations; sum +=
+     sizeof(singly_linked_list)) {
+        curr->next = reinterpret_cast<singly_linked_list *>(alloc(sizeof(
+        singly_linked_list)));
+        if (!curr->next) {
+            printf("allocator returned 0\n");
+            exit(1);
+        }
+        curr       = curr->next;
+        curr->next = nullptr;
+    }
+    for (singly_linked_list *curr {first.next}; curr;) {
+        auto copy = curr;
+        curr      = curr->next;
+        dealloc(copy);
+    }
+    balloc_teardown();
+}
+
 TEST(UserAPI, EdgeCases) {
     balloc_setup();
     // Test zero-size allocation

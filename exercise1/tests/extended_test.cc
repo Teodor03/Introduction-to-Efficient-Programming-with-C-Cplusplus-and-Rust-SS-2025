@@ -400,6 +400,124 @@ TEST(EdgeCases, InvalidOperations) {
     balloc_teardown();
 }
 
+
+TEST(EdgeCases, VerifyCleanup) {
+    EXPECT_EQ(bitmap_allocators, nullptr) << "before setup, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "before setup, everything should be zeroed";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "") << "before setup, accesses should crash";
+    balloc_setup();
+
+    // very small amount of data
+    void *small_memory = alloc(sizeof(int));
+    ASSERT_TRUE(small_memory);
+    int *small_data = new (small_memory) int {5};
+    *small_data += 1;
+    EXPECT_EQ(*small_data, 6); // use memory
+
+    // ok-ish amount of data
+    void *medium_memory = alloc(sizeof(int) << 12);
+    ASSERT_TRUE(medium_memory);
+    int *medium_data = new (medium_memory) int {5};
+    *medium_data += 2;
+    EXPECT_EQ(*medium_data, 7); // use memory
+
+    // large amount of data
+    void *large_memory = alloc(sizeof(int) << 21);
+    ASSERT_TRUE(large_memory);
+    int *large_data = new (large_memory) int {5};
+    *large_data += 3;
+    EXPECT_EQ(*large_data, 8); // use memory
+
+    dealloc(small_memory);
+    dealloc(medium_memory);
+    dealloc(large_memory);
+
+    balloc_teardown();
+
+    EXPECT_DEATH(*small_data += 1, "")
+        << "after teardown, all allocations should be returned to the OS";
+    EXPECT_DEATH(*medium_data += 2, "")
+        << "after teardown, all allocations should be returned to the OS";
+    EXPECT_DEATH(*large_data += 3, "")
+        << "after teardown, all allocations should be returned to the OS";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "")
+        << "after teardown, accesses should crash";
+    EXPECT_EQ(bitmap_allocators, nullptr) << "after teardown, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "after teardown, everything should be zeroed";
+}
+
+
+TEST(EdgeCases, VerifyCleanupRepeatedly) {
+    EXPECT_EQ(bitmap_allocators, nullptr) << "before setup, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "before setup, everything should be zeroed";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "") << "before setup, accesses should crash";
+    balloc_setup();
+
+    // very small amount of data
+    void *before_memory = alloc(sizeof(int));
+    ASSERT_TRUE(before_memory);
+    int *before_data = new (before_memory) int {5};
+    *before_data += 1;
+    EXPECT_EQ(*before_data, 6); // use memory
+
+    dealloc(before_memory);
+
+    balloc_teardown();
+
+    EXPECT_DEATH(*before_data += 1, "")
+        << "after teardown, all allocations should be returned to the OS";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "")
+        << "after teardown, accesses should crash";
+    EXPECT_EQ(bitmap_allocators, nullptr) << "after teardown, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "after teardown, everything should be zeroed";
+
+    for (int i = 0; i < 5000; ++i) {
+        // EXPECT_DEATH is slooow
+        EXPECT_EQ(bitmap_allocators, nullptr) << "before setup, everything should be zeroed";
+        EXPECT_EQ(num_bitmap_allocators, 0) << "before setup, everything should be zeroed";
+        balloc_setup();
+
+        // very small amount of data
+        void *loop_data = alloc(sizeof(int));
+        ASSERT_TRUE(loop_data);
+        int *small_data1 = new (loop_data) int {5};
+        *small_data1 += 1;
+        EXPECT_EQ(*small_data1, 6); // use memory
+
+        dealloc(loop_data);
+
+        balloc_teardown();
+
+        EXPECT_EQ(bitmap_allocators, nullptr) << "after teardown, everything should be zeroed";
+        EXPECT_EQ(num_bitmap_allocators, 0) << "after teardown, everything should be zeroed";
+    }
+
+    EXPECT_EQ(bitmap_allocators, nullptr) << "before setup, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "before setup, everything should be zeroed";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "") << "before setup, accesses should crash";
+
+    balloc_setup();
+
+    // very small amount of data
+    void *after_memory = alloc(sizeof(int));
+    ASSERT_TRUE(after_memory);
+    int *after_data = new (after_memory) int {5};
+    *after_data += 1;
+    EXPECT_EQ(*after_data, 6); // use memory
+
+    dealloc(after_memory);
+
+    balloc_teardown();
+
+    EXPECT_DEATH(*after_data += 1, "")
+        << "after teardown, all allocations should be returned to the OS";
+    EXPECT_DEATH(bitmap_allocators[0].chunk_size += 1, "")
+        << "after teardown, accesses should crash";
+    EXPECT_EQ(bitmap_allocators, nullptr) << "after teardown, everything should be zeroed";
+    EXPECT_EQ(num_bitmap_allocators, 0) << "after teardown, everything should be zeroed";
+}
+
+
 // ===== ALLOCATION BOUNDARY TESTS =====
 // Tests that verify behavior at various boundaries
 
