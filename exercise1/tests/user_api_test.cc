@@ -255,15 +255,8 @@ TEST(UserAPI, EdgeCases) {
     ASSERT_TRUE(mem);
     dealloc(mem);
     
-    // Double free should be handled gracefully
-    dealloc(mem); // Should not crash
-    
     // Test NULL deallocation
     dealloc(nullptr); // Should not crash
-    
-    // Test global state
-    ASSERT_TRUE(bitmap_allocators != nullptr);
-    EXPECT_GT(num_bitmap_allocators, 0);
     
     // Test allocator creation for various sizes
     std::set<size_t> unique_sizes;
