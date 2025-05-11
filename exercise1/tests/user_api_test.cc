@@ -221,11 +221,11 @@ struct singly_linked_list {
 
 TEST(UserAPI, MoreAllocations) {
     balloc_setup();
-    const int num_allocations = 2 * 1024 * 1024;
+    const int total_alloc_size = 2 * 1024 * 1024;
 
     long sum = 0;
     singly_linked_list first {nullptr};
-    for (singly_linked_list *curr {&first}; sum < num_allocations; sum +=
+    for (singly_linked_list *curr {&first}; sum < total_alloc_size; sum +=
      sizeof(singly_linked_list)) {
         curr->next = reinterpret_cast<singly_linked_list *>(alloc(sizeof(
         singly_linked_list)));
@@ -236,11 +236,13 @@ TEST(UserAPI, MoreAllocations) {
         curr       = curr->next;
         curr->next = nullptr;
     }
-    for (singly_linked_list *curr {first.next}; curr;) {
+    long num_deallocations = 0;
+    for (singly_linked_list *curr {first.next}; curr; num_deallocations++) {
         auto copy = curr;
         curr      = curr->next;
         dealloc(copy);
     }
+    EXPECT_EQ(total_alloc_size, num_deallocations * sizeof(singly_linked_list));
     balloc_teardown();
 }
 

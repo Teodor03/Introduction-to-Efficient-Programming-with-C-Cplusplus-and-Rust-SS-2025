@@ -71,11 +71,13 @@ static void BM_LinkedListAlloc(benchmark::State &state) {
             curr = curr->next;
             curr->next = nullptr;
         }
-        for (singly_linked_list *curr {first.next}; curr;) {
+        long num_deallocations = 0;
+        for (singly_linked_list *curr {first.next}; curr; num_deallocations++) {
             auto copy = curr;
             curr = curr->next;
             dealloc(copy);
         }
+        assert(limit == num_deallocations * sizeof(struct singly_linked_list));
     }
     balloc_teardown();
 }
@@ -414,9 +416,13 @@ static void BM_TreeStructure(benchmark::State &state) {
         TreeNode** children;
         int num_children;
     };
+    long num_allocations = 0;
+    long num_deallocations = 0;
+    long num_nodes = 0;
     
-    auto create_node = [](int depth, int maxDepth) -> TreeNode* {
+    auto create_node = [&num_allocations](int depth, int maxDepth) -> TreeNode* {
         TreeNode* node = (TreeNode*)alloc(sizeof(TreeNode));
+        num_allocations++;
         if (!node) return nullptr;
         
         node->value = depth;
@@ -438,7 +444,7 @@ static void BM_TreeStructure(benchmark::State &state) {
     };
     
     // Non-recursive tree deletion using a stack
-    auto delete_tree = [](TreeNode* root) {
+    auto delete_tree = [&num_deallocations](TreeNode* root) {
         if (!root) return;
         
         // Use vector as a stack for nodes to delete
@@ -459,6 +465,7 @@ static void BM_TreeStructure(benchmark::State &state) {
                 dealloc(current->children);
             }
             
+            num_deallocations++;
             // Delete the current node
             dealloc(current);
         }
@@ -470,6 +477,7 @@ static void BM_TreeStructure(benchmark::State &state) {
     for (auto _ : state) {
         // Create root node
         TreeNode* root = create_node(0, tree_depth);
+        num_nodes++;
         benchmark::DoNotOptimize(root);
         
         // Build tree in breadth-first manner
@@ -483,9 +491,12 @@ static void BM_TreeStructure(benchmark::State &state) {
                 
                 for (int i = 0; i < parent->num_children; i++) {
                     parent->children[i] = create_node(depth, tree_depth);
+                    num_nodes++;
+                    assert(parent->children[i]);
                     if (parent->children[i]) {
                         next_level.push_back(parent->children[i]);
                     }
+
                 }
             }
             
@@ -495,6 +506,8 @@ static void BM_TreeStructure(benchmark::State &state) {
         // Cleanup
         delete_tree(root);
     }
+    assert(num_allocations == num_nodes);
+    assert(num_deallocations == num_nodes);
     
     balloc_teardown();
 }
