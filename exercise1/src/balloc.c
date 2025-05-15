@@ -6,6 +6,7 @@
  */
 
 #include <stddef.h>
+#include <strings.h>
 
 // Global array of bitmap allocators
 struct bitmap_alloc *bitmap_allocators = NULL;
@@ -22,9 +23,12 @@ void balloc_teardown(void) {
 
 
 void *alloc_block_in_bitmap(struct bitmap_alloc *alloc) {
-    (void)alloc;
-    // TODO: Implement
-    return NULL;
+    size_t pos = __builtin_ffsll(~(alloc->occupied_areas));
+    if(!pos)
+        return NULL;
+    pos--;
+    alloc->occupied_areas |= 1llu<<pos;
+    return ((char *) alloc->memory) + pos * alloc->chunk_size;
 }
 
 void dealloc_block_in_bitmap(struct bitmap_alloc *alloc, void *object) {
