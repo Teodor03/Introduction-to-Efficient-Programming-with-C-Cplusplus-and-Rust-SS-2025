@@ -6,7 +6,7 @@
  */
 
 #include <stddef.h>
-#include <strings.h>
+#define BITS_IN_BITMAP (sizeof(size_t) * 8)
 
 // Global array of bitmap allocators
 struct bitmap_alloc *bitmap_allocators = NULL;
@@ -21,7 +21,6 @@ void balloc_teardown(void) {
     // Optional: Place logic which should happen after a benchmark
 }
 
-
 void *alloc_block_in_bitmap(struct bitmap_alloc *alloc) {
     size_t pos = __builtin_ffsll(~(alloc->occupied_areas));
     if(!pos)
@@ -32,9 +31,14 @@ void *alloc_block_in_bitmap(struct bitmap_alloc *alloc) {
 }
 
 void dealloc_block_in_bitmap(struct bitmap_alloc *alloc, void *object) {
-    (void)alloc;
-    (void)object;
-    // TODO: Implement
+    if(object < alloc->memory)
+        return;
+    size_t dist = (size_t) ((char *) object - (char *) alloc->memory);
+    if(dist >= (alloc->chunk_size * BITS_IN_BITMAP))
+        return;
+    if((dist % alloc->chunk_size) != 0)
+        return;
+    alloc->occupied_areas &= ~(1llu << (dist / alloc->chunk_size));
 }
 
 void *alloc_from_os(size_t size) {
