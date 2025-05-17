@@ -50,7 +50,10 @@ void dealloc_block_in_bitmap(struct bitmap_alloc *alloc, void *object) {
 }
 
 void *alloc_from_os(size_t size) {
-    return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0);
+    void *return_value = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    if(return_value == MAP_FAILED)
+        return NULL;
+    return return_value;
 }
 
 void dealloc_to_os(void *memory, size_t size) {
