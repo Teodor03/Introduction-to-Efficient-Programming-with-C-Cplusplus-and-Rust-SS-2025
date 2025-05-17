@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "balloc.h"
 
 /*!
@@ -6,7 +7,13 @@
  */
 
 #include <stddef.h>
+#include <unistd.h>
+
+#include <sys/mman.h>
+
 #define BITS_IN_BITMAP (sizeof(size_t) * 8)
+
+size_t page_size;
 
 // Global array of bitmap allocators
 struct bitmap_alloc *bitmap_allocators = NULL;
@@ -15,6 +22,7 @@ struct bitmap_alloc *bitmap_allocators = NULL;
 size_t num_bitmap_allocators = 0;
 
 void balloc_setup(void) {
+    page_size = sysconf(_SC_PAGE_SIZE);
     // Optional: Place logic which should happen befor a benchmark
 }
 void balloc_teardown(void) {
@@ -42,15 +50,11 @@ void dealloc_block_in_bitmap(struct bitmap_alloc *alloc, void *object) {
 }
 
 void *alloc_from_os(size_t size) {
-    (void)size;
-    // TODO: Implement
-    return NULL;
+    return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0);
 }
 
 void dealloc_to_os(void *memory, size_t size) {
-    (void)memory;
-    (void)size;
-    // TODO: Implement
+    munmap(memory, size);
 }
 
 void *alloc(size_t size) {
