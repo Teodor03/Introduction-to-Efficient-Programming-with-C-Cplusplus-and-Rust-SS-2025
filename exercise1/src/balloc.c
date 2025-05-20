@@ -11,99 +11,84 @@
 #include <sys/mman.h>
 #include <string.h>
 
-#define NUM_BITMAP_CHUNK_SIZES 5
+#define BITMAP_CHUNK_MIN_SIZE 16
+#define BITMAP_CHUNK_MAX_SIZE 512
 
-#define OS_ALLOCATION_SIZE_INDEX -1
+#define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
-typedef struct bitmap_allocator_position {
+typedef size_t balloc_metadata;
 
-    int chunk_size_index;
-
-    size_t index;
-
-} bitmap_allocator_position;
-
-typedef struct bitmap_allocator_storage {
-    
-    struct bitmap_alloc *memory;
-
-    size_t num_pages;
-
-    size_t size;
-
-    size_t first_free;
-
-} bitmap_allocator_storage;
-
-
-
-// Not used
+//Header defined.
 struct bitmap_alloc *bitmap_allocators = NULL;
 
-// Not used
+//Header defined.
 size_t num_bitmap_allocators = 0;
 
-size_t bitmap_chunk_sizes[NUM_BITMAP_CHUNK_SIZES] = {
-    8,
-    16,
-    32,
-    64,
-    128
-};
+size_t max_num_bitmap_allocators;
 
-bitmap_allocator_storage allocators [NUM_BITMAP_CHUNK_SIZES];
+size_t bitmap_allocators_num_pages_allocated;
 
-
-void init_bitmap_allocator_storage (bitmap_allocator_storage * storage) {
-    storage->memory = alloc_from_os(BITMAP_PAGE_SIZE);
-    memset(storage->memory, 0, BITMAP_PAGE_SIZE);
-    storage->num_pages = 1;
-    storage->size = BITMAP_PAGE_SIZE / sizeof(struct bitmap_alloc);
-    storage->first_free = 0;
+void init_bitmap_allocators() {
+    bitmap_allocators = alloc_from_os(BITMAP_PAGE_SIZE);
+    num_bitmap_allocators = 0;
+    max_num_bitmap_allocators = BITMAP_PAGE_SIZE / sizeof(struct bitmap_alloc);
+    bitmap_allocators_num_pages_allocated = 1;
 }
 
-void expand_bitmap_allocator_storage (bitmap_allocator_storage * storage) {
-    void *new_memory = alloc_from_os(storage->num_pages * BITMAP_PAGE_SIZE * 2);
-    memset(new_memory, 0, storage->num_pages * BITMAP_PAGE_SIZE * 2);
-    memcpy(new_memory, storage->memory, storage->num_pages * BITMAP_PAGE_SIZE);
-    munmap(storage->memory, storage->num_pages * BITMAP_PAGE_SIZE);
-    storage->memory = new_memory;
-    storage->num_pages *= 2;
-    storage->size = (storage->num_pages * BITMAP_PAGE_SIZE) / sizeof(struct bitmap_alloc);
+void expand_bitmap_allocators() {
+    void * new_memory = alloc_from_os(BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated * 2);
+    memcpy(new_memory, bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    munmap(bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    bitmap_allocators = new_memory;
+    bitmap_allocators_num_pages_allocated *= 2;
+    max_num_bitmap_allocators = (bitmap_allocators_num_pages_allocated * BITMAP_PAGE_SIZE) / sizeof(struct bitmap_alloc);
 }
 
+void add_bitmap_allocator(size_t chunk_size) {
+    if(num_bitmap_allocators == max_num_bitmap_allocators)
+        expand_bitmap_allocators();
+    struct bitmap_alloc * to_add = bitmap_allocators + num_bitmap_allocators;
+    to_add->chunk_size = chunk_size;
+    to_add->occupied_areas = 0ull;
+    to_add->memory = alloc_from_os(chunk_size * NUM_BITS_SIZE_T);
+    num_bitmap_allocators++;
+}
 
-
-void add_bitmap_allocator (int chunk_size_index, size_t index) {
-    size_t allocator_size = MEMORY_SIZE_CHUNK(bitmap_chunk_sizes[chunk_size_index]);
-    size_t num_allocators = allocator_size < BITMAP_PAGE_SIZE ? BITMAP_PAGE_SIZE / allocator_size : 1;
-    if((index + num_allocators) > allocators[chunk_size_index].size)
-        expand_bitmap_allocator_storage(allocators + chunk_size_index);
-    void *memory_to_use = alloc_from_os(allocator_size < BITMAP_PAGE_SIZE ? BITMAP_PAGE_SIZE : allocator_size);
-    for(size_t i = 0; i < num_allocators; i++) {
-        struct bitmap_alloc *a = allocators[chunk_size_index].memory;
-        a[index + i].memory = memory_to_use;
-        a[index + i].chunk_size = bitmap_chunk_sizes[chunk_size_index];
-        a[index + i].occupied_areas = 0llu;
-        memory_to_use = ((char *) memory_to_use) + allocator_size;
+void *allocate_bitmap_chunk(size_t chunk_size, size_t *found_index) {
+    for(size_t i = 0; i < num_bitmap_allocators; i++) {
+        if(bitmap_allocators[i].chunk_size != chunk_size)
+            continue;
+        void *memory = alloc_block_in_bitmap(bitmap_allocators + i);
+        if(!memory)
+            continue;
+        *found_index = i;
+        return memory;
     }
+    add_bitmap_allocator(chunk_size);
+    *found_index = num_bitmap_allocators - 1;
+    return alloc_block_in_bitmap(bitmap_allocators + (num_bitmap_allocators - 1));
 }
+
+
 
 
 
 void balloc_setup(void) {
-    //Init allocators.
-    for(int i = 0; i < NUM_BITMAP_CHUNK_SIZES; i++) {
-        init_bitmap_allocator_storage(allocators + i);
-        add_bitmap_allocator(i, 0);
+    init_bitmap_allocators();
+    for(size_t i = BITMAP_CHUNK_MIN_SIZE; i <= BITMAP_CHUNK_MAX_SIZE; i *= 2) {
+        add_bitmap_allocator(i);
     }
 }
 
 void balloc_teardown(void) {
-    // Optional: Place logic which should happen after a benchmark
+    for(size_t i = 0; i < num_bitmap_allocators; i++) {
+        if(bitmap_allocators[i].chunk_size)
+            munmap(bitmap_allocators[i].memory, bitmap_allocators[i].chunk_size * NUM_BITS_SIZE_T);
+    }
+    munmap(bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    bitmap_allocators = NULL;
+    num_bitmap_allocators = 0ull;
 }
-
-
 
 void *alloc_block_in_bitmap(struct bitmap_alloc *alloc) {
     size_t pos = __builtin_ffsll(~(alloc->occupied_areas));
@@ -148,75 +133,37 @@ void dealloc_to_os(void *memory, size_t size) {
     munmap(memory, size);
 }
 
-
-
-void *alloc_bitmap_chunk(int chunk_size_index, bitmap_allocator_position * allocation_position) {
-    bitmap_allocator_storage *curr_storage = allocators + chunk_size_index;
-    size_t index = curr_storage->first_free;
-    while(1) {
-        if(index == curr_storage->size) {
-            expand_bitmap_allocator_storage(curr_storage);
-        }
-        if(curr_storage->memory[index].memory == NULL) {
-            add_bitmap_allocator(chunk_size_index, index);
-        }
-        void *found = alloc_block_in_bitmap(curr_storage->memory + index);
-        if(found != NULL) {
-            allocation_position->chunk_size_index = chunk_size_index;
-            allocation_position->index = index;
-            curr_storage->first_free = index;
-            return found;
-        }
-        index++;
-    }
-}
-
-void dealloc_bitmap_chunk(void *address, bitmap_allocator_position metadata) {
-    struct bitmap_alloc *curr_alloc = allocators[metadata.chunk_size_index].memory + metadata.index;
-    dealloc_block_in_bitmap(curr_alloc, address);
-    if(success_dealloc_block_in_bitmap == BLOCK_IN_BITMAP_NOT_DEALLOCATED)
-        return;
-    allocators[metadata.chunk_size_index].first_free = metadata.index;
-    //TODO Prune empty allocators if too many!
-}
-
-int retrieve_corresponding_chunk_size(size_t size) {
-    if(size <= bitmap_chunk_sizes[0])
-        return 0;
-    if(size > bitmap_chunk_sizes[NUM_BITMAP_CHUNK_SIZES - 1])
-        return OS_ALLOCATION_SIZE_INDEX;
-    for(int i = 1; i < NUM_BITMAP_CHUNK_SIZES; i++) {
-        if(size <= bitmap_chunk_sizes[i])
-            return i;
-    }
-    return OS_ALLOCATION_SIZE_INDEX;
-}
-
 void *alloc(size_t size) {
     if(!size)
         return NULL;
-    size_t total_size = size + sizeof(bitmap_allocator_position);
-    bitmap_allocator_position hat;
-    void * allocated_memory;
-    int chunk_index = retrieve_corresponding_chunk_size(total_size);
-    if(chunk_index == OS_ALLOCATION_SIZE_INDEX) {
-        allocated_memory = alloc_from_os(total_size);
-        hat.chunk_size_index = OS_ALLOCATION_SIZE_INDEX;
-        hat.index = total_size;
-    }else {
-        allocated_memory = alloc_bitmap_chunk(chunk_index, &hat);
+    size += sizeof(balloc_metadata);
+    size_t chunk_size = (size_t)1 << (NUM_BITS_SIZE_T - __builtin_clzl(size - 1));
+    void * memory;
+    if(chunk_size > BITMAP_CHUNK_MAX_SIZE) {
+        //OS Allocation
+        memory = alloc_from_os(size);
+        *((balloc_metadata *) memory) = BALLOC_METADATA_OS_ALLOCATION | size;
+        return ((char *) memory) + sizeof(balloc_metadata);
     }
-    memcpy(allocated_memory, &hat, sizeof(bitmap_allocator_position));
-    return ((char *) allocated_memory) + sizeof(bitmap_allocator_position);
+    //BitMap Allocation
+    if(chunk_size < BITMAP_CHUNK_MIN_SIZE)
+        chunk_size = BITMAP_CHUNK_MIN_SIZE;
+    size_t found_index;
+    memory = allocate_bitmap_chunk(chunk_size, &found_index);
+    *((balloc_metadata *) memory) = (~BALLOC_METADATA_OS_ALLOCATION) & found_index;
+    return ((char *) memory) + sizeof(balloc_metadata);
 }
 
 void dealloc(void *memory) {
     if(!memory)
         return;
-    bitmap_allocator_position *hat = (bitmap_allocator_position *) (((char *) memory) - sizeof(bitmap_allocator_position));
-    if(hat ->chunk_size_index == OS_ALLOCATION_SIZE_INDEX) {
-        munmap(hat, hat->index);
+    void *real_start = ((balloc_metadata *) memory) - 1;
+    balloc_metadata hat = *((balloc_metadata *) real_start);
+    if(hat & BALLOC_METADATA_OS_ALLOCATION) {
+        //OS Allocation
+        munmap(real_start, (~BALLOC_METADATA_OS_ALLOCATION) & hat);
         return;
     }
-    dealloc_bitmap_chunk(memory, *hat);
+    //BitMap Allocation
+    dealloc_block_in_bitmap(bitmap_allocators + hat, real_start);
 }
