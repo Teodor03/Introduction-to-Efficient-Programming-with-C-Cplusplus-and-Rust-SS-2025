@@ -124,23 +124,14 @@ void *alloc_block_in_bitmap(struct bitmap_alloc *alloc) {
     return ((char *) alloc->memory) + pos * alloc->chunk_size;
 }
 
-int success_dealloc_block_in_bitmap;
-
 void dealloc_block_in_bitmap(struct bitmap_alloc *alloc, void *object) {
-    if(object < alloc->memory) {
-        success_dealloc_block_in_bitmap = 0;
+    if(object < alloc->memory)
         return;
-    }
     size_t dist = (size_t) ((char *) object - (char *) alloc->memory);
-    if(dist >= MEMORY_SIZE_CHUNK(alloc->chunk_size)) {
-        success_dealloc_block_in_bitmap = 0;
+    if(dist >= MEMORY_SIZE_CHUNK(alloc->chunk_size))
         return;
-    }
-    if((dist % alloc->chunk_size) != 0) {
-        success_dealloc_block_in_bitmap = 0;
+    if((dist % alloc->chunk_size) != 0)
         return;
-    }
-    success_dealloc_block_in_bitmap = 1;
     alloc->occupied_areas &= ~(1llu << (dist / alloc->chunk_size));
 }
 
@@ -209,9 +200,7 @@ void dealloc(void *memory) {
         return;
     }
     //BitMap Deallocation
-    dealloc_block_in_bitmap(bitmap_allocators + hat, real_start);
-    if(!success_dealloc_block_in_bitmap)
-        return;
+    bitmap_allocators[hat].occupied_areas &= ~(1llu << (((size_t) ((char *) real_start - (char *) bitmap_allocators[hat].memory)) / bitmap_allocators[hat].chunk_size));
     int chunk_size_index = NUM_BITS_SIZE_T - BITMAP_CHUNK_MIN_SIZE - 1 - __builtin_clzl(bitmap_allocators[hat].chunk_size);
     if(free_bitmaps[chunk_size_index].num_elements == free_bitmaps[chunk_size_index].max_num_elements)
         expand_stack(free_bitmaps + chunk_size_index);
