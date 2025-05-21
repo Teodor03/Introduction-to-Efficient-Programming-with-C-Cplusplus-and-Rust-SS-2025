@@ -15,6 +15,8 @@
 #define BITMAP_CHUNK_MIN_SIZE 4
 #define BITMAP_CHUNK_MAX_SIZE 6
 
+#define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 8
+
 #define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
 typedef size_t balloc_metadata;
@@ -42,10 +44,10 @@ size_t bitmap_allocators_num_pages_allocated;
 _stack free_bitmaps [BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1];
 
 void init_bitmap_allocators() {
-    bitmap_allocators = alloc_from_os(BITMAP_PAGE_SIZE);
+    bitmap_allocators = alloc_from_os(BITMAP_PAGE_SIZE * DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES);
     num_bitmap_allocators = 0;
-    max_num_bitmap_allocators = BITMAP_PAGE_SIZE / sizeof(struct bitmap_alloc);
-    bitmap_allocators_num_pages_allocated = 1;
+    max_num_bitmap_allocators = (BITMAP_PAGE_SIZE * DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES) / sizeof(struct bitmap_alloc);
+    bitmap_allocators_num_pages_allocated = DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES;
 }
 
 void expand_bitmap_allocators() {
@@ -58,9 +60,9 @@ void expand_bitmap_allocators() {
 }
 
 void init_stack(_stack* s) {
-    s->mem = alloc_from_os(BITMAP_PAGE_SIZE);
+    s->mem = alloc_from_os(BITMAP_PAGE_SIZE * DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES);
     s->num_elements = 0;
-    s->max_num_elements = BITMAP_PAGE_SIZE / sizeof(size_t);
+    s->max_num_elements = BITMAP_PAGE_SIZE * DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES / sizeof(size_t);
 }
 
 void expand_stack(_stack* s) {
@@ -127,6 +129,9 @@ void balloc_teardown(void) {
             munmap(bitmap_allocators[i].memory, bitmap_allocators[i].chunk_size * NUM_BITS_SIZE_T);
     }
     munmap(bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    for(int i = 0; i < (BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1); i++) {
+        munmap(free_bitmaps[i].mem, free_bitmaps[i].max_num_elements * sizeof(size_t));
+    }
     bitmap_allocators = NULL;
     num_bitmap_allocators = 0ull;
 }
