@@ -17,7 +17,7 @@
 
 #define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 8
 
-#define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 8
+#define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 1
 
 #define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
@@ -89,31 +89,6 @@ void add_bitmap_allocator(int chunk_size_index) {
     free_bitmaps[chunk_size_index].mem[free_bitmaps[chunk_size_index].num_elements] = num_bitmap_allocators - 1;
     free_bitmaps[chunk_size_index].num_elements++;
 }
-
-void *allocate_bitmap_chunk(int chunk_size_index, size_t *found_index) {
-    _stack *free_bitmap = free_bitmaps + chunk_size_index;
-    while(1) {
-        if(!free_bitmap->num_elements) {
-            //Init a new bitmap allocator.
-            add_bitmap_allocator(chunk_size_index);
-            *found_index = num_bitmap_allocators - 1;
-            return alloc_block_in_bitmap(bitmap_allocators + (num_bitmap_allocators - 1));
-        }
-        size_t curr_alloc = free_bitmap->mem[free_bitmap->num_elements - 1];
-        void *memory = alloc_block_in_bitmap(bitmap_allocators + curr_alloc);
-        if(!memory) {
-            (free_bitmap->num_elements)--;
-            continue;
-        }
-        if(!(~((bitmap_allocators + curr_alloc)->occupied_areas))) {
-            (free_bitmap->num_elements)--;
-        }
-        *found_index = curr_alloc;
-        return memory;
-    }
-}
-
-
 
 
 
@@ -214,6 +189,9 @@ void *alloc(size_t size) {
         }
         size_t pos_in_bitmap_allocator = __builtin_ffsll(~(bitmap_allocators[curr_allocator_index].occupied_areas)) - 1;
         bitmap_allocators[curr_allocator_index].occupied_areas |= 1llu << pos_in_bitmap_allocator;
+        if(!(~(bitmap_allocators[curr_allocator_index].occupied_areas))) {
+            (free_bitmap->num_elements)--;
+        }
         memory = ((char *) bitmap_allocators[curr_allocator_index].memory) + pos_in_bitmap_allocator * bitmap_allocators[curr_allocator_index].chunk_size;
         *((balloc_metadata *) memory) = (~BALLOC_METADATA_OS_ALLOCATION) & curr_allocator_index;
         return ((char *) memory) + sizeof(balloc_metadata);
