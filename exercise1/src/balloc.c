@@ -17,6 +17,8 @@
 
 #define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 8
 
+#define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 8
+
 #define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
 typedef size_t balloc_metadata;
@@ -119,7 +121,9 @@ void balloc_setup(void) {
     init_bitmap_allocators();
     for(int i = 0; i < (BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1); i++) {
         init_stack(free_bitmaps + i);
-        add_bitmap_allocator(i);
+        for(int j = 0; j < INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE; j++) {
+            add_bitmap_allocator(i);
+        }
     }
 }
 
