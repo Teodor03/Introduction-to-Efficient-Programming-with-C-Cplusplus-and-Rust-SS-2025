@@ -186,18 +186,38 @@ void *alloc(size_t size) {
     size += sizeof(balloc_metadata);
     int chunk_size_index = NUM_BITS_SIZE_T - __builtin_clzl(size - 1);
     void * memory;
+
     if(chunk_size_index > BITMAP_CHUNK_MAX_SIZE) {
         //OS Allocation
         memory = alloc_from_os(size);
         *((balloc_metadata *) memory) = BALLOC_METADATA_OS_ALLOCATION | size;
         return ((char *) memory) + sizeof(balloc_metadata);
     }
+
     //BitMap Allocation
     chunk_size_index = chunk_size_index < BITMAP_CHUNK_MIN_SIZE ? 0 : chunk_size_index - BITMAP_CHUNK_MIN_SIZE;
-    size_t found_index;
-    memory = allocate_bitmap_chunk(chunk_size_index, &found_index);
-    *((balloc_metadata *) memory) = (~BALLOC_METADATA_OS_ALLOCATION) & found_index;
-    return ((char *) memory) + sizeof(balloc_metadata);
+    _stack *free_bitmap = free_bitmaps + chunk_size_index;
+
+    while(1) {
+        if(!free_bitmap->num_elements) {
+            //Init a new bitmap allocator.
+            add_bitmap_allocator(chunk_size_index);
+            bitmap_allocators[num_bitmap_allocators - 1].occupied_areas = 1llu;
+            *((balloc_metadata *) bitmap_allocators[num_bitmap_allocators - 1].memory) = (~BALLOC_METADATA_OS_ALLOCATION) & (num_bitmap_allocators - 1);
+            return ((char *) bitmap_allocators[num_bitmap_allocators - 1].memory) + sizeof(balloc_metadata);
+        }
+
+        size_t curr_allocator_index = free_bitmap->mem[free_bitmap->num_elements - 1];
+        if(!(~(bitmap_allocators[curr_allocator_index].occupied_areas))) {
+            (free_bitmap->num_elements)--;
+            continue;
+        }
+        size_t pos_in_bitmap_allocator = __builtin_ffsll(~(bitmap_allocators[curr_allocator_index].occupied_areas)) - 1;
+        bitmap_allocators[curr_allocator_index].occupied_areas |= 1llu << pos_in_bitmap_allocator;
+        memory = ((char *) bitmap_allocators[curr_allocator_index].memory) + pos_in_bitmap_allocator * bitmap_allocators[curr_allocator_index].chunk_size;
+        *((balloc_metadata *) memory) = (~BALLOC_METADATA_OS_ALLOCATION) & curr_allocator_index;
+        return ((char *) memory) + sizeof(balloc_metadata);
+    }
 }
 
 void dealloc(void *memory) {
