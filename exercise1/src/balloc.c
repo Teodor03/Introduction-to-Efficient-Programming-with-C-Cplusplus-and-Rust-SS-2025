@@ -11,8 +11,10 @@
 #include <sys/mman.h>
 #include <string.h>
 
+#define REDUCE_MUNMAP
+
 //The allocation size starts at 8 byte, since we have a metadata hat.
-#define BITMAP_CHUNK_MIN_SIZE 4
+#define BITMAP_CHUNK_MIN_SIZE 6
 #define BITMAP_CHUNK_MAX_SIZE 6
 
 #define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 8
@@ -55,7 +57,9 @@ void init_bitmap_allocators() {
 void expand_bitmap_allocators() {
     void * new_memory = alloc_from_os(BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated * 2);
     memcpy(new_memory, bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    #ifndef REDUCE_MUNMAP
     munmap(bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    #endif
     bitmap_allocators = new_memory;
     bitmap_allocators_num_pages_allocated *= 2;
     max_num_bitmap_allocators = (bitmap_allocators_num_pages_allocated * BITMAP_PAGE_SIZE) / sizeof(struct bitmap_alloc);
@@ -70,7 +74,9 @@ void init_stack(_stack* s) {
 void expand_stack(_stack* s) {
     void * new_memory = alloc_from_os(s->max_num_elements * sizeof(size_t) * 2);
     memcpy(new_memory, s->mem, s->max_num_elements * sizeof(size_t));
+    #ifndef REDUCE_MUNMAP
     munmap(s->mem, s->max_num_elements * sizeof(size_t));
+    #endif
     s->mem = new_memory;
     s->max_num_elements *= 2;
 }
@@ -108,9 +114,11 @@ void balloc_teardown(void) {
             munmap(bitmap_allocators[i].memory, bitmap_allocators[i].chunk_size * NUM_BITS_SIZE_T);
     }
     munmap(bitmap_allocators, BITMAP_PAGE_SIZE * bitmap_allocators_num_pages_allocated);
+    #ifndef REDUCE_MUNMAP
     for(int i = 0; i < (BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1); i++) {
         munmap(free_bitmaps[i].mem, free_bitmaps[i].max_num_elements * sizeof(size_t));
     }
+    #endif
     bitmap_allocators = NULL;
     num_bitmap_allocators = 0ull;
 }
