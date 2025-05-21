@@ -22,14 +22,15 @@
     #define BITMAP_CHUNK_SIZE_TOTAL 64ull
     #define BITMAP_CHUNK_MIN_SIZE 6
     #define BITMAP_CHUNK_MAX_SIZE 6
+    #define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 8
 #else
     #define BITMAP_CHUNK_MIN_SIZE 6
     #define BITMAP_CHUNK_MAX_SIZE 11
+    #define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 1
 #endif
 
-#define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 8
+#define DYNAMIC_ARRAY_INITIAL_NUMBER_PAGES 32
 
-#define INITIAL_NUMBER_BITMAP_ALLOCATORS_PER_SIZE 1
 
 #define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
@@ -45,10 +46,8 @@ typedef struct _stack {
 
 } _stack;
 
-//Header defined.
 struct bitmap_alloc *bitmap_allocators = NULL;
 
-//Header defined.
 size_t num_bitmap_allocators = 0;
 
 size_t max_num_bitmap_allocators;
