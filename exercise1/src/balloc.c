@@ -73,14 +73,6 @@ void expand_stack(_stack* s) {
     s->max_num_elements *= 2;
 }
 
-
-
-
-
-
-
-
-
 void add_bitmap_allocator(int chunk_size_index) {
     if(num_bitmap_allocators == max_num_bitmap_allocators)
         expand_bitmap_allocators();
@@ -111,13 +103,17 @@ void *allocate_bitmap_chunk(int chunk_size_index, size_t *found_index) {
             (free_bitmap->num_elements)--;
             continue;
         }
-        if(!((bitmap_allocators + curr_alloc)->occupied_areas)) {
+        if(!(~((bitmap_allocators + curr_alloc)->occupied_areas))) {
             (free_bitmap->num_elements)--;
         }
         *found_index = curr_alloc;
         return memory;
     }
 }
+
+
+
+
 
 void balloc_setup(void) {
     init_bitmap_allocators();
