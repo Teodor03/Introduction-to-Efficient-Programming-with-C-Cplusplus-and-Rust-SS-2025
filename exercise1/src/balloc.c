@@ -12,10 +12,8 @@
 #include <string.h>
 
 //The allocation size starts at 8 byte, since we have a metadata hat.
-#define BITMAP_CHUNK_NUM_SIZE 6
-
 #define BITMAP_CHUNK_MIN_SIZE 4
-#define BITMAP_CHUNK_MAX_SIZE 9
+#define BITMAP_CHUNK_MAX_SIZE 6
 
 #define BALLOC_METADATA_OS_ALLOCATION 0x8000000000000000ull
 
@@ -41,7 +39,7 @@ size_t max_num_bitmap_allocators;
 
 size_t bitmap_allocators_num_pages_allocated;
 
-_stack free_bitmaps [BITMAP_CHUNK_NUM_SIZE];
+_stack free_bitmaps [BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1];
 
 void init_bitmap_allocators() {
     bitmap_allocators = alloc_from_os(BITMAP_PAGE_SIZE);
@@ -117,7 +115,7 @@ void *allocate_bitmap_chunk(int chunk_size_index, size_t *found_index) {
 
 void balloc_setup(void) {
     init_bitmap_allocators();
-    for(int i = 0; i < BITMAP_CHUNK_NUM_SIZE; i++) {
+    for(int i = 0; i < (BITMAP_CHUNK_MAX_SIZE - BITMAP_CHUNK_MIN_SIZE + 1); i++) {
         init_stack(free_bitmaps + i);
         add_bitmap_allocator(i);
     }
