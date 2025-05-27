@@ -141,7 +141,7 @@ TEST(TokenizeBenchTest, NoWhitespace) {
     std::string test_string = "{\"a\":1,\"b\":2,\"c\":3,\"d\":true,\"e\":null,\"f\":\"string\"}";
     auto tokens             = tokenize_all(test_string);
 
-    ASSERT_EQ(tokens.size(), 21); // 6 key-value pairs * 3 tokens each + { and }
+    ASSERT_EQ(tokens.size(), 25); // 6 key-value pairs * 3 tokens each + { and } + 5 * ,
     EXPECT_EQ(tokens[0].get_type(), jayson::token_type::OBJECT_BEGIN);
     EXPECT_EQ(tokens[tokens.size() - 1].get_type(), jayson::token_type::OBJECT_END);
 }
