@@ -125,9 +125,7 @@ std::basic_ostream<Char_T, Char_Traits> &operator<<(
 }
 
 inline void dump_tokens(const std::vector<token> &tokens) {
-    for (const auto &token: tokens) {
-        std::cout << token << std::endl;
-    }
+    for (const auto &token : tokens) { std::cout << token << std::endl; }
 }
 
 } // namespace jayson
