@@ -45,3 +45,5 @@ function(googlebench_file name)
 endfunction()
 
 googlebench_file(tokenize_bench tokenize_bench.cc)
+googlebench_file(parse_bench parse_bench.cc)
+ 

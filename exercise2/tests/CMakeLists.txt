@@ -40,3 +40,9 @@ endfunction()
 
 # Add test executables
 googletest_file(tokenize_test tokenize_test.cc)
+googletest_file(parse_single_value parse_single_value.cc)
+googletest_file(parse_simple_structures_test parse_simple_structures_test.cc)
+googletest_file(parse_complex_structures_test parse_complex_structures_test.cc)
+googletest_file(parse_complete_documents_test parse_complete_documents_test.cc)
+googletest_file(parse_error_test parse_error_test.cc)
+googletest_file(tokenize_bench_test tokenize_bench_test.cc)
