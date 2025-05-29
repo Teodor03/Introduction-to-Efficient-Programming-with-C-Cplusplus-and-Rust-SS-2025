@@ -13,7 +13,65 @@ using integer_type = std::int64_t;
 using float_type   = double;
 using string_type  = std::string_view;
 
+union token_parsed_value {
+    integer_type int_value;
+    float_type float_value;
+    string_type string_value;
+    bool boolean_value;
+
+    explicit token_parsed_value()
+        : int_value(0) {
+    }
+
+    explicit token_parsed_value(const integer_type &int_value)
+        : int_value(int_value) {
+    }
+
+    explicit token_parsed_value(const float_type &float_value)
+        : float_value(float_value) {
+    }
+
+    explicit token_parsed_value(const string_type &string_value)
+        : string_value(string_value) {
+    }
+
+    explicit token_parsed_value(const bool &boolean_value)
+        : boolean_value(boolean_value) {
+    }
+};
+
 struct token {
+
+    token(const token_type &type, const string_type &original_string)
+        : type(type),
+          original_string(original_string) {
+    }
+
+    token(const token_type &type, const string_type &original_string, const integer_type &int_value)
+        : type(type),
+          original_string(original_string),
+          parsed_value(int_value) {
+    }
+
+    token(const token_type &type, const string_type &original_string, const float_type &float_value)
+    : type(type),
+      original_string(original_string),
+      parsed_value(float_value) {
+    }
+
+    token(const token_type &type, const string_type &original_string, const string_type &string_value)
+    : type(type),
+      original_string(original_string),
+      parsed_value(string_value) {
+    }
+
+    token(const token_type &type, const string_type &original_string, const bool &boolean_value)
+    : type(type),
+      original_string(original_string),
+      parsed_value(boolean_value) {
+    }
+
+
     [[nodiscard]] token_type get_type() const;
     [[nodiscard]] string_type get_original() const;
     // no getter for single-character tokens
@@ -23,11 +81,29 @@ struct token {
     // no get_none() as there is nothing to get
     [[nodiscard]] std::optional<integer_type> get_integer() const;
     [[nodiscard]] std::optional<float_type> get_float() const;
+
+private:
+
+    token_type type;
+    string_type original_string;
+    token_parsed_value parsed_value;
+
 };
 
 struct tokenizer {
+
+    explicit tokenizer(const string_type &input)
+        : input(input),
+          pos(0) {
+    }
+
     [[nodiscard]] std::optional<token> get_next_token();
     [[nodiscard]] std::optional<token> peek_next_token() const;
+
+private:
+    string_type input;
+    size_t pos;
+
 };
 
 
