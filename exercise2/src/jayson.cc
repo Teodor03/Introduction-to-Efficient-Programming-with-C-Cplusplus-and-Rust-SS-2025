@@ -414,7 +414,10 @@ std::unique_ptr<jayson::jayson_element> parse_jayson_array(jayson::tokenizer &to
         return std::make_unique<jayson::jayson_element>(std::move(array));
     }
     while (true) {
-        array->array.push_back(std::move(parse_jayson_element(tokens)));
+        auto array_element = parse_jayson_element(tokens);
+        if (array_element == nullptr)
+            return nullptr;
+        array->array.push_back(std::move(array_element));
         t = peek_next_non_comment_token(tokens);
         if (!t.has_value())
             return nullptr;
@@ -455,7 +458,12 @@ std::unique_ptr<jayson::jayson_element> parse_jayson_element(jayson::tokenizer& 
 }
 
 std::unique_ptr<jayson::jayson_element> jayson::parse(tokenizer tokens) {
-    return parse_jayson_element(tokens);
+    auto result = parse_jayson_element(tokens);
+    if (result == nullptr)
+        return nullptr;
+    if (peek_next_non_comment_token(tokens).has_value())
+        return nullptr;
+    return result;
 }
 
 std::unique_ptr<jayson::jayson_element> jayson::parse_direct(std::string_view input) {
