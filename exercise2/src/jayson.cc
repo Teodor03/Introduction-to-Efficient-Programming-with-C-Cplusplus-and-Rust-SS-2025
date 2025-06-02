@@ -1,5 +1,7 @@
 #include "../include/jayson.hpp"
 
+#include <ranges>
+
 jayson::token_type jayson::token::get_type() const {
     return type;
 }
@@ -216,90 +218,248 @@ jayson::tokenizer jayson::tokenize(std::string_view input) {
     return tokenizer(input);
 }
 
+jayson::jayson_types jayson::jayson_object::get_type() const {
+    return jayson_types::OBJECT;
+}
 
 jayson::integer_type jayson::jayson_object::size() const {
-    return 0;
+    return static_cast<integer_type>(map.size());
 }
 
 std::vector<jayson::string_type> jayson::jayson_object::get_keys() const {
-    return {};
+    std::vector<string_type> result;
+    for (const auto key: map | std::views::keys) {
+        result.push_back(key);
+    }
+    return result;
 }
 
 std::vector<const jayson::jayson_element *> jayson::jayson_object::get_values() const {
-    return {};
+    std::vector<const jayson_element *> result;
+    for (auto&& val : this->map) {
+        result.push_back(val.second.get());
+    }
+    return result;
 }
 
 const jayson::jayson_element *jayson::jayson_object::get_value_for(const jayson::string_type &key) const {
-    (void) key;
-    return 0;
+    const auto it = map.find(key);
+    return it == map.end() ? nullptr : it->second.get();
+}
+
+jayson::jayson_types jayson::jayson_array::get_type() const {
+    return jayson_types::ARRAY;
 }
 
 jayson::integer_type jayson::jayson_array::size() const {
-    return 0;
+    return static_cast<integer_type>(this->array.size());
 }
 
 std::vector<const jayson::jayson_element *> jayson::jayson_array::get_elements() const {
-    return {};
+    std::vector<const jayson::jayson_element *> result;
+    for (const auto& i : this->array) {
+        result.push_back(i.get());
+    }
+    return result;
 }
 
 const jayson::jayson_element *jayson::jayson_array::get_value_at(jayson::integer_type index) const {
-    (void) index;
-    return 0;
+    if (index < 0 || index > this->size())
+        return nullptr;
+    return this->array[index].get();
+}
+
+jayson::jayson_string::jayson_string(const string_type& value) : string(value) {
+}
+
+jayson::jayson_types jayson::jayson_string::get_type() const {
+    return jayson_types::STRING;
 }
 
 jayson::string_type jayson::jayson_string::get_string() const {
-    return "";
+    return this->string;
+}
+
+jayson::jayson_integer::jayson_integer(const integer_type &value) : integer(value) {
+}
+
+jayson::jayson_types jayson::jayson_integer::get_type() const {
+    return jayson_types::INTEGER;
 }
 
 jayson::integer_type jayson::jayson_integer::get_integer() const {
-    return 0;
+    return this->integer;
+}
+
+jayson::jayson_float::jayson_float(const float_type &value) : floating(value) {
+}
+
+jayson::jayson_types jayson::jayson_float::get_type() const {
+    return jayson_types::FLOAT;
 }
 
 jayson::float_type jayson::jayson_float::get_float() const {
-    return 0.0;
+    return this->floating;
+}
+
+jayson::jayson_boolean::jayson_boolean(const bool &value) : boolean(value) {
+}
+
+jayson::jayson_types jayson::jayson_boolean::get_type() const {
+    return jayson_types::BOOLEAN;
 }
 
 bool jayson::jayson_boolean::get_boolean() const {
-    return false;
+    return this->boolean;
 }
 
-
-jayson::jayson_types jayson::jayson_element::get_type() const {
+jayson::jayson_types jayson::jayson_none::get_type() const {
     return jayson_types::NONE;
 }
 
+jayson::jayson_element::jayson_element(std::unique_ptr<jayson_element_base> element): element(std::move(element)) {
+}
+
+jayson::jayson_types jayson::jayson_element::get_type() const {
+    return this->element->get_type();
+}
+
 const jayson::jayson_object *jayson::jayson_element::to_object() const {
-    return 0;
+    return dynamic_cast<const jayson_object *>(this->element.get());
 }
 
 const jayson::jayson_array *jayson::jayson_element::to_array() const {
-    return 0;
+    return dynamic_cast<const jayson_array *>(this->element.get());
 }
 
 const jayson::jayson_string *jayson::jayson_element::to_string() const {
-    return 0;
+    return dynamic_cast<const jayson_string *>(this->element.get());
 }
 
 const jayson::jayson_integer *jayson::jayson_element::to_integer() const {
-    return 0;
+    return dynamic_cast<const jayson_integer *>(this->element.get());
 }
 
 const jayson::jayson_float *jayson::jayson_element::to_float() const {
-    return 0;
+    return dynamic_cast<const jayson_float *>(this->element.get());
 }
 
 const jayson::jayson_boolean *jayson::jayson_element::to_boolean() const {
-    return 0;
+    return dynamic_cast<const jayson_boolean *>(this->element.get());
 }
 
 const jayson::jayson_none *jayson::jayson_element::to_none() const {
-    return 0;
+    return dynamic_cast<const jayson_none *>(this->element.get());
 }
 
+std::optional<jayson::token> get_next_non_comment_token(jayson::tokenizer& tokens) {
+    while (true) {
+        auto t = tokens.get_next_token();
+        if (!t.has_value())
+            return t;
+        if (t.value().get_type() != jayson::token_type::COMMENT)
+            return t;
+    }
+}
+
+std::optional<jayson::token> peek_next_non_comment_token(jayson::tokenizer& tokens) {
+    while (true) {
+        auto t = tokens.peek_next_token();
+        if (!t.has_value())
+            return t;
+        if (t.value().get_type() != jayson::token_type::COMMENT)
+            return t;
+        t = tokens.get_next_token();
+    }
+}
+
+std::unique_ptr<jayson::jayson_element> parse_jayson_element(jayson::tokenizer& tokens);
+
+std::unique_ptr<jayson::jayson_element> parse_jayson_object(jayson::tokenizer& tokens) {
+    auto object = std::make_unique<jayson::jayson_object>();
+    auto t = get_next_non_comment_token(tokens);
+    if (!t.has_value())
+        return nullptr;
+    if (t.value().get_type() == jayson::token_type::OBJECT_END)
+        return std::make_unique<jayson::jayson_element>(std::move(object));
+    while (true) {
+        if (t.value().get_type() != jayson::token_type::STRING)
+            return nullptr;
+        auto key = t.value().get_string().value();
+        t = get_next_non_comment_token(tokens);
+        if (!t.has_value())
+            return nullptr;
+        if (t.value().get_type() != jayson::token_type::COLON)
+            return nullptr;
+        auto key_pair = parse_jayson_element(tokens);
+        if (key_pair == nullptr)
+            return nullptr;
+        object->map[key] = std::move(key_pair);
+        t = get_next_non_comment_token(tokens);
+        if (!t.has_value())
+            return nullptr;
+        if (t.value().get_type() == jayson::token_type::OBJECT_END)
+            return std::make_unique<jayson::jayson_element>(std::move(object));
+        if (t.value().get_type() == jayson::token_type::COMMA) {
+            t = get_next_non_comment_token(tokens);
+        } else {
+            return nullptr;
+        }
+    }
+}
+
+std::unique_ptr<jayson::jayson_element> parse_jayson_array(jayson::tokenizer &tokens) {
+    auto array = std::make_unique<jayson::jayson_array>();
+    auto t = peek_next_non_comment_token(tokens);
+    if (!t.has_value())
+        return nullptr;
+    if (t.value().get_type() == jayson::token_type::ARRAY_END) {
+        t = get_next_non_comment_token(tokens);
+        return std::make_unique<jayson::jayson_element>(std::move(array));
+    }
+    while (true) {
+        array->array.push_back(std::move(parse_jayson_element(tokens)));
+        t = peek_next_non_comment_token(tokens);
+        if (!t.has_value())
+            return nullptr;
+        if (t.value().get_type() == jayson::token_type::ARRAY_END) {
+            t = get_next_non_comment_token(tokens);
+            return std::make_unique<jayson::jayson_element>(std::move(array));
+        }
+        if (t.value().get_type() == jayson::token_type::COMMA) {
+            t = get_next_non_comment_token(tokens);
+        } else {
+            return nullptr;
+        }
+    }
+}
+
+std::unique_ptr<jayson::jayson_element> parse_jayson_element(jayson::tokenizer& tokens) {
+    auto t = get_next_non_comment_token(tokens);
+    if (!t.has_value())
+        return nullptr;
+    switch (t.value().get_type()) {
+        case jayson::token_type::OBJECT_BEGIN:
+            return parse_jayson_object(tokens);
+        case jayson::token_type::ARRAY_BEGIN:
+            return parse_jayson_array(tokens);
+        case jayson::token_type::NONE:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_none>());
+        case jayson::token_type::STRING:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_string>(t.value().get_string().value()));
+        case jayson::token_type::INTEGER:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_integer>(t.value().get_integer().value()));
+        case jayson::token_type::FLOAT:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_float>(t.value().get_float().value()));
+        case jayson::token_type::BOOLEAN:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_boolean>(t.value().get_boolean().value()));
+        default:
+            return nullptr;
+    }
+}
 
 std::unique_ptr<jayson::jayson_element> jayson::parse(tokenizer tokens) {
-    (void) tokens;
-    return {};
+    return parse_jayson_element(tokens);
 }
 
 std::unique_ptr<jayson::jayson_element> jayson::parse_direct(std::string_view input) {

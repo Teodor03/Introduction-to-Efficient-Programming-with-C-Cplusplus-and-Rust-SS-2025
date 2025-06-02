@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <vector>
+#include <unordered_map>
 
 namespace jayson {
 
@@ -101,39 +102,83 @@ struct tokenizer {
     [[nodiscard]] std::optional<token> peek_next_token() const;
 
 private:
+
     string_type input;
     size_t pos;
 
 };
 
+struct jayson_element_base {
 
-struct jayson_object {
+    virtual ~jayson_element_base() = default;
+    [[nodiscard]] virtual jayson_types get_type() const = 0;
+
+};
+
+struct jayson_object : jayson_element_base {
+
+    std::unordered_map<string_type, std::unique_ptr<jayson_element>> map;
+
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] integer_type size() const;
-    // get_value_for(get_keys()[i]) == get_values()[i]
     [[nodiscard]] std::vector<string_type> get_keys() const;
     [[nodiscard]] std::vector<const jayson_element *> get_values() const;
     [[nodiscard]] const jayson_element *get_value_for(const string_type &key) const;
 };
-struct jayson_array {
+
+struct jayson_array : jayson_element_base {
+
+    std::vector<std::unique_ptr<jayson_element>> array;
+
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] integer_type size() const;
     [[nodiscard]] std::vector<const jayson_element *> get_elements() const;
     [[nodiscard]] const jayson_element *get_value_at(integer_type index) const;
 };
-struct jayson_string {
+
+struct jayson_string : jayson_element_base{
+
+    string_type string;
+
+    explicit jayson_string(const string_type& value);
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] string_type get_string() const;
 };
-struct jayson_integer {
+
+struct jayson_integer : jayson_element_base {
+
+    integer_type integer;
+
+    explicit jayson_integer(const integer_type& value);
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] integer_type get_integer() const;
 };
-struct jayson_float {
+
+struct jayson_float : jayson_element_base {
+
+    float_type floating;
+
+    explicit jayson_float(const float_type& value);
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] float_type get_float() const;
 };
-struct jayson_boolean {
+
+struct jayson_boolean : jayson_element_base{
+
+    bool boolean;
+
+    explicit jayson_boolean(const bool& value);
+    [[nodiscard]] jayson_types get_type() const override;
     [[nodiscard]] bool get_boolean() const;
 };
-struct jayson_none {};
+
+struct jayson_none : jayson_element_base {
+    [[nodiscard]] jayson_types get_type() const override;
+};
 
 struct jayson_element {
+
+    explicit jayson_element(std::unique_ptr<jayson_element_base> element);
     [[nodiscard]] jayson_types get_type() const;
     [[nodiscard]] const jayson_object *to_object() const;
     [[nodiscard]] const jayson_array *to_array() const;
@@ -142,6 +187,11 @@ struct jayson_element {
     [[nodiscard]] const jayson_float *to_float() const;
     [[nodiscard]] const jayson_boolean *to_boolean() const;
     [[nodiscard]] const jayson_none *to_none() const;
+
+private:
+
+    std::unique_ptr<jayson_element_base> element;
+
 };
 
 } // namespace jayson
