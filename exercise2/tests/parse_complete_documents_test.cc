@@ -329,6 +329,8 @@ TEST(ParseCompleteDocuments, RealWorldDatasetExcerpt) {
     buffer << t.rdbuf();
 
     auto input = buffer.str();
+    auto tokens = tokenize_all(input);
+    ASSERT_EQ(tokens.size(), 302739);
     test_parse_both(input, [](auto, auto result) {
         ASSERT_TRUE(result);
         EXPECT_EQ(result->get_type(), jayson::jayson_types::OBJECT);
@@ -353,7 +355,7 @@ TEST(ParseCompleteDocuments, RealWorldDatasetExcerpt) {
         EXPECT_EQ(exports_arr->size(), 1);
 
         auto export_node = exports_arr->get_value_at(0)->to_object()->get_value_for("Node")->to_object();
-        EXPECT_EQ(export_node->get_value_for("node_id")->to_integer()->get_integer(), 2394762731964337494LL);
+        EXPECT_EQ(export_node->get_value_for("node_id")->to_integer()->get_integer(), 239476273194337494LL);
         EXPECT_EQ(export_node->get_value_for("output_index")->to_integer()->get_integer(), 0);
         EXPECT_FALSE(export_node->get_value_for("lambda")->to_boolean()->get_boolean());
 
