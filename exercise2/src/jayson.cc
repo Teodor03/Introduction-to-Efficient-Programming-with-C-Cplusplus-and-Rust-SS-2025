@@ -238,7 +238,7 @@ std::vector<const jayson::jayson_element *> jayson::jayson_object::get_values() 
     return result;
 }
 
-const jayson::jayson_element *jayson::jayson_object::get_value_for(const jayson::string_type &key) const {
+const jayson::jayson_element *jayson::jayson_object::get_value_for(const string_type &key) const {
     const auto it = map.find(key);
     return it == map.end() ? nullptr : it->second.get();
 }
@@ -259,8 +259,8 @@ std::vector<const jayson::jayson_element *> jayson::jayson_array::get_elements()
     return result;
 }
 
-const jayson::jayson_element *jayson::jayson_array::get_value_at(jayson::integer_type index) const {
-    if (index < 0 || index > this->size())
+const jayson::jayson_element *jayson::jayson_array::get_value_at(integer_type index) const {
+    if (index < 0 || index >= this->size())
         return nullptr;
     return this->array[index].get();
 }
@@ -459,8 +459,6 @@ std::unique_ptr<jayson::jayson_element> parse_jayson_element(jayson::tokenizer& 
 
 std::unique_ptr<jayson::jayson_element> jayson::parse(tokenizer tokens) {
     auto result = parse_jayson_element(tokens);
-    if (result == nullptr)
-        return nullptr;
     if (peek_next_non_comment_token(tokens).has_value())
         return nullptr;
     return result;
