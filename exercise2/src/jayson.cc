@@ -398,6 +398,8 @@ std::unique_ptr<jayson::jayson_element> parse_jayson_object(jayson::tokenizer& t
             return std::make_unique<jayson::jayson_element>(std::move(object));
         if (t.value().get_type() == jayson::token_type::COMMA) {
             t = get_next_non_comment_token(tokens);
+            if (!t.has_value())
+                return nullptr;
         } else {
             return nullptr;
         }
