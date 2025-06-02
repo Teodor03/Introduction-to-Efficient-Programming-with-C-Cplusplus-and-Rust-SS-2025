@@ -1,6 +1,7 @@
 #include "../include/jayson.hpp"
 
 #include <ranges>
+#include <variant>
 
 jayson::token_type jayson::token::get_type() const {
     return type;
@@ -466,6 +467,141 @@ std::unique_ptr<jayson::jayson_element> jayson::parse(tokenizer tokens) {
     return result;
 }
 
+std::unique_ptr<jayson::jayson_element> parse_jayson_primitive(const jayson::token& t) {
+    switch (t.get_type()) {
+        case jayson::token_type::STRING:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_string>(*t.get_string()));
+        case jayson::token_type::INTEGER:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_integer>(*t.get_integer()));
+        case jayson::token_type::FLOAT:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_float>(*t.get_float()));
+        case jayson::token_type::BOOLEAN:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_boolean>(*t.get_boolean()));
+        case jayson::token_type::NONE:
+            return std::make_unique<jayson::jayson_element>(std::make_unique<jayson::jayson_none>());
+        default:
+            return nullptr;
+    }
+}
+
 std::unique_ptr<jayson::jayson_element> jayson::parse_direct(std::string_view input) {
-    return parse(tokenize(input));
+    tokenizer tokens = tokenize(input);
+    std::vector<std::variant<jayson_object, jayson_array>> container_stack;
+    std::vector<std::optional<string_type>> key_stack;
+    std::vector<token_type> context_stack;
+    std::unique_ptr<jayson_element> primitive;
+
+    auto t = get_next_non_comment_token(tokens);
+    if (!t.has_value())
+        return nullptr;
+
+    while (true) {
+        if (t->get_type() == token_type::OBJECT_BEGIN) {
+            auto next = peek_next_non_comment_token(tokens);
+            if (next.has_value() && next->get_type() == token_type::OBJECT_END) {
+                get_next_non_comment_token(tokens);
+                primitive = std::make_unique<jayson_element>(std::make_unique<jayson_object>());
+            } else {
+                container_stack.emplace_back(jayson_object{});
+                context_stack.push_back(token_type::OBJECT_BEGIN);
+                key_stack.emplace_back(std::nullopt);
+                t = get_next_non_comment_token(tokens);
+                continue;
+            }
+        } else if (t->get_type() == token_type::ARRAY_BEGIN) {
+            auto next = peek_next_non_comment_token(tokens);
+            if (next.has_value() && next->get_type() == token_type::ARRAY_END) {
+                get_next_non_comment_token(tokens);
+                primitive = std::make_unique<jayson_element>(std::make_unique<jayson_array>());
+            } else {
+                container_stack.emplace_back(jayson_array{});
+                context_stack.push_back(token_type::ARRAY_BEGIN);
+                key_stack.emplace_back(std::nullopt);
+                t = get_next_non_comment_token(tokens);
+                continue;
+            }
+        } else {
+            primitive = parse_jayson_primitive(*t);
+            if (!primitive)
+                return nullptr;
+        }
+
+        while (!container_stack.empty()) {
+            auto& ctx = context_stack.back();
+
+            if (ctx == token_type::ARRAY_BEGIN) {
+                auto& arr = std::get<jayson_array>(container_stack.back());
+                arr.array.push_back(std::move(primitive));
+
+                auto next = peek_next_non_comment_token(tokens);
+                if (!next.has_value())
+                    return nullptr;
+
+                if (next->get_type() == token_type::COMMA) {
+                    get_next_non_comment_token(tokens);
+                    t = get_next_non_comment_token(tokens);
+                    if (!t.has_value()) return nullptr;
+                    break;
+                }
+                if (next->get_type() == token_type::ARRAY_END) {
+                    get_next_non_comment_token(tokens); // consume ']'
+                    auto done = std::make_unique<jayson_element>(std::make_unique<jayson_array>(std::move(arr)));
+                    container_stack.pop_back();
+                    context_stack.pop_back();
+                    key_stack.pop_back();
+                    primitive = std::move(done);
+                } else {
+                    return nullptr;
+                }
+            } else if (ctx == token_type::OBJECT_BEGIN) {
+                auto& key = key_stack.back();
+                if (!key.has_value()) {
+                    if (t->get_type() != token_type::STRING)
+                        return nullptr;
+                    key = *t->get_string();
+
+                    t = get_next_non_comment_token(tokens);
+                    if (!t.has_value() || t->get_type() != token_type::COLON)
+                        return nullptr;
+
+                    t = get_next_non_comment_token(tokens);
+                    if (!t.has_value())
+                        return nullptr;
+                    break;
+                }
+
+                auto& obj = std::get<jayson_object>(container_stack.back());
+                obj.map[*key] = std::move(primitive);
+                key.reset();
+
+                auto next = peek_next_non_comment_token(tokens);
+                if (!next.has_value())
+                    return nullptr;
+
+                if (next->get_type() == token_type::COMMA) {
+                    get_next_non_comment_token(tokens);
+                    t = get_next_non_comment_token(tokens);
+                    if (!t.has_value())
+                        return nullptr;
+                    break;
+                }
+                if (next->get_type() == token_type::OBJECT_END) {
+                    get_next_non_comment_token(tokens);
+                    auto done = std::make_unique<jayson_element>(std::make_unique<jayson_object>(std::move(obj)));
+                    container_stack.pop_back();
+                    context_stack.pop_back();
+                    key_stack.pop_back();
+                    primitive = std::move(done);
+                } else {
+                    return nullptr;
+                }
+            }
+        }
+        if (container_stack.empty()) {
+            auto trailing = peek_next_non_comment_token(tokens);
+            if (trailing.has_value())
+                return nullptr;
+            return primitive;
+        }
+    }
 }
