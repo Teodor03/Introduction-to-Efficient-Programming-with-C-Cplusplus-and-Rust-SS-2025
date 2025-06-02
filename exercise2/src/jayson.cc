@@ -150,15 +150,11 @@ std::optional<jayson::token> jayson::tokenizer::peek_next_token() const {
                 if (this->input[current_pos] == '-')
                     current_pos++;
                 //Parse decimal part.
-                if (this->input[current_pos] == '0') {
-                    current_pos++;
-                } else if (this->input[current_pos] >= '1' && this->input[current_pos] <= '9') {
-                    current_pos++;
-                    while (this->input[current_pos] >= '0' && this->input[current_pos] <= '9') {
-                        current_pos++;
-                    }
-                } else {
+                if (this->input[current_pos] < '0' || this->input[current_pos] > '9')
                     return std::nullopt;
+                current_pos++;
+                while (this->input[current_pos] >= '0' && this->input[current_pos] <= '9') {
+                    current_pos++;
                 }
                 //Parse fraction part.
                 bool is_integer = true;
