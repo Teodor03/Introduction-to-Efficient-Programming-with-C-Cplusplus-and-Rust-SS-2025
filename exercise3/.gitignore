@@ -1,0 +1,4 @@
+build*/
+result
+.cache
+profile.json.gz
